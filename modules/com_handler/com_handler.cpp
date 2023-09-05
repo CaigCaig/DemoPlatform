@@ -4,6 +4,7 @@
 #include "task.h"
 #include "leds.h"
 #include "mb_def.h"
+#include "device_commands.h"
 #include "net_bridge.h"
 #include "mcp3422.h"
 #include "rs485.h"
@@ -13,6 +14,8 @@
 #include "24AA025E48.h"
 #include "batteries.h"
 #include "sockets.h"
+#include "string.h"
+#include "rtc.h"
 
 extern int32_t Vbat[BAT_QUANTITY];
 extern uint32_t battery_sr[CHARGERS];
@@ -53,15 +56,183 @@ extern BatTest_t bat_test;
 
 uint16_t gtmp16;
 uint32_t gtmp32=0;
+volatile OPU_coordinates_t opu_coordinates;
+
+OPU_TIME_t utc;
+OPU_STEPPER_t opu_stepper_motor;
+
+xTaskHandle TaskWatch;
 
 void Com_Handler (int conn, char *com_buffer, uint16_t com_buf_len)
 {
-//  uint8_t Temp_Buf[20];
-  uint8_t tmp, i;
+  uint32_t key = *(com_buffer) << 24 | *(com_buffer + 1) << 16 |  *(com_buffer + 2) << 8 | *(com_buffer + 3);
+  Device_t device = (Device_t)*(com_buffer+4);
+  uint8_t command = *(com_buffer+5);
     
+  switch (key)
+  {
+  case 0x4D495054:
+    switch (device)
+    {
+
+/*---------------- обработка команд для оптической установки ----------------*/ 
+    case OPTICAL:
+      switch (command)
+      {
+      case OPTICAL_PING:
+        OPTICAL_ACK_Ping_t optical_ping_ack;
+        strcpy(optical_ping_ack.str, "MIPT");
+        optical_ping_ack.device = OPTICAL;
+        optical_ping_ack.command = OPTICAL_PING;
+        strcpy(optical_ping_ack.ack, " ACK");
+        write(conn, &optical_ping_ack, sizeof(optical_ping_ack));
+        break;
+      }
+      break;
+
+/* -------------- обработка команд для ОПУ ----------------*/
+    case OPU:
+      switch (command)
+      {
+      case OPU_REQUEST:
+        OPU_ACK_REQUEST_t opu_ack_request;
+        write(conn, &opu_ack_request, sizeof(opu_ack_request));
+        break;
+      case OPU_SETLON:
+        OPU_ACK_SETLON_t opu_ack_setlon;
+        opu_coordinates.longitude = *(float *)(com_buffer+SETLON_NUM);
+        opu_coordinates.e_w = *(com_buffer + SETLON_LET);
+        strcpy(opu_ack_setlon.str, "MIPT"); 
+        opu_ack_setlon.device = OPU;
+        opu_ack_setlon.command = OPU_SETLON;
+        opu_ack_setlon.error = OPU_OK;
+        write(conn, &opu_ack_setlon, sizeof(opu_ack_setlon));
+        break;
+      case OPU_SETLAT:
+        OPU_ACK_SETLAT_t opu_ack_setlat;
+        opu_coordinates.latitude = *(float *)(com_buffer+SETLAT_NUM);
+        opu_coordinates.n_s = *(com_buffer + SETLAT_LET);
+        strcpy(opu_ack_setlat.str, "MIPT"); 
+        opu_ack_setlat.device = OPU;
+        opu_ack_setlat.command = OPU_SETLAT;
+        opu_ack_setlat.error = OPU_OK;
+        write(conn, &opu_ack_setlat, sizeof(opu_ack_setlat));
+        xTaskCreate(vTestSMA, "TestSMA", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL );
+        break;
+      case OPU_TIME:
+        TM_RTC_t datatime;
+        OPU_ACK_TIME_t opu_ack_time;
+        utc.year = *(com_buffer + TIME_YEAR)  << 8 | *(com_buffer + TIME_YEAR + 1);
+        utc.month = *(com_buffer + TIME_MONTH);
+        utc.day = *(com_buffer + TIME_DAY);
+        utc.hour = *(com_buffer + TIME_HOUR);
+        utc.min = *(com_buffer + TIME_MIN);
+        utc.sec = *(com_buffer + TIME_SEC);
+        datatime.date = 1;
+        datatime.day = utc.day;
+        datatime.month = utc.month;
+        datatime.year = uint8_t(utc.year - 2000);
+        datatime.hours = utc.hour;
+        datatime.minutes = utc.min;
+        datatime.seconds = utc.sec;
+//        vTaskSuspend(TaskWatch);
+        TM_RTC_SetDateTime(&datatime, TM_RTC_Format_BIN);
+//        vTaskResume(TaskWatch);
+/*        uint16_t tmp16;
+        stoui(com_buffer+TIME_YEAR, &utc.year, 4);
+        stoui(com_buffer+TIME_MONTH, &tmp16, 2);
+        utc.month = (uint8_t)tmp16;
+        stoui(com_buffer+TIME_DAY, &tmp16, 2);
+        utc.day = (uint8_t)tmp16;
+        stoui(com_buffer+TIME_HOUR, &tmp16, 2);
+        utc.hour = (uint8_t)tmp16;
+        stoui(com_buffer+TIME_MIN, &tmp16, 2);
+        utc.min = (uint8_t)tmp16;
+        stoui(com_buffer+TIME_SEC, &tmp16, 4);
+        utc.sec = (uint8_t)tmp16; */
+        strcpy(opu_ack_time.str, "MIPT"); 
+        opu_ack_time.device = OPU;
+        opu_ack_time.command = OPU_TIME;
+        opu_ack_time.error = OPU_OK;
+        write(conn, &opu_ack_time, sizeof(opu_ack_time));
+        break;
+      case OPU_LOAD:
+        OPU_ACK_LOAD_t opu_ack_load;
+        write(conn, &opu_ack_load, sizeof(opu_ack_load));
+        break;
+      case OPU_SETSTEPPER:
+        OPU_ACK_SETSTEPPER_t opu_ack_setstepper;
+        opu_stepper_motor.spr = *(com_buffer+6) << 8 | *(com_buffer+7);
+        opu_stepper_motor.mode = *(com_buffer+8)  << 8 | *(com_buffer+9);
+        strcpy(opu_ack_setstepper.str, "MIPT"); 
+        opu_ack_setstepper.device = OPU;
+        opu_ack_setstepper.command = OPU_SETSTEPPER;
+        opu_ack_setstepper.error = OPU_OK;
+        write(conn, &opu_ack_setstepper, sizeof(opu_ack_setstepper));
+        break;
+      case OPU_DATA:
+        break;
+      case OPU_CLEARDATA:
+        OPU_ACK_CLEARDATA_t opu_ack_cleardata;
+        strcpy(opu_ack_cleardata.str, "MIPT"); 
+        opu_ack_cleardata.device = OPU;
+        opu_ack_cleardata.command = OPU_CLEARDATA;
+        opu_ack_cleardata.error = OPU_OK;
+        write(conn, &opu_ack_cleardata, sizeof(opu_ack_cleardata));
+        break;
+      case OPU_REQUAIM:
+        break;
+      case OPU_SETAIMA:
+        OPU_ACK_SETAIMA_t opu_ack_setaima;
+        strcpy(opu_ack_setaima.str, "MIPT"); 
+        opu_ack_setaima.device = OPU;
+        opu_ack_setaima.command = OPU_SETAIMA;
+        opu_ack_setaima.error = OPU_OK;
+        write(conn, &opu_ack_setaima, sizeof(opu_ack_setaima));
+        break;
+      case OPU_SETAIME:
+        OPU_ACK_SETAIME_t opu_ack_setaime;
+        strcpy(opu_ack_setaime.str, "MIPT"); 
+        opu_ack_setaime.device = OPU;
+        opu_ack_setaime.command = OPU_SETAIME;
+        opu_ack_setaime.error = OPU_OK;
+        write(conn, &opu_ack_setaime, sizeof(opu_ack_setaime));
+        break;
+      case OPU_SETZERA:
+        OPU_ACK_SETZERA_t opu_ack_setzera;
+        strcpy(opu_ack_setzera.str, "MIPT"); 
+        opu_ack_setzera.device = OPU;
+        opu_ack_setzera.command = OPU_SETZERA;
+        opu_ack_setzera.error = OPU_OK;
+        write(conn, &opu_ack_setzera, sizeof(opu_ack_setzera));
+        break;
+      case OPU_SETZERE:
+        OPU_ACK_SETZERE_t opu_ack_setzere;
+        strcpy(opu_ack_setzere.str, "MIPT"); 
+        opu_ack_setzere.device = OPU;
+        opu_ack_setzere.command = OPU_SETZERE;
+        opu_ack_setzere.error = OPU_OK;
+        write(conn, &opu_ack_setzere, sizeof(opu_ack_setzere));
+        break;
+      case OPU_PING:
+        OPU_ACK_Ping_t opu_ack_ping;
+        strcpy(opu_ack_ping.str, "MIPT");
+        opu_ack_ping.device = OPU;
+        opu_ack_ping.command = OPU_PING;
+        strcpy(opu_ack_ping.ack, " ACK");
+        write(conn, &opu_ack_ping, sizeof(opu_ack_ping));
+        break;
+      }
+      break;
+    }
+    break;
+  }
+  
+    
+#if 0
   if (*(com_buffer) == MB_ID)
   {
-
+    
     if ((*(com_buffer+1) == BAT_VOLTAGE) && (com_buf_len == L_BAT_VOLTAGE))
     {
 //      *com_buffer = MB_ID;
@@ -758,10 +929,58 @@ void Com_Handler (int conn, char *com_buffer, uint16_t com_buf_len)
       adch_type_answ[i] = 0;
     }
     close(conn);
+    
   }
 
-//  for(i=0; i<=com_buf_len; i++)
-//  {
-//    Temp_Buf[i]=*(com_buffer+i);
-//  }
+#endif
+ }
+
+COM_StatusTypeDef stoui(char *s, uint16_t *value, uint8_t len)
+{
+  uint8_t tmp8;
+  uint8_t mult = len;
+  uint16_t tmpi = 0;
+  for (char i = 0; i < len; i++)
+  {
+    tmp8 = (uint8_t)(*(s+i)) - 0x30;
+    switch (mult)
+    {
+    case 0:
+      break;
+    case 1:
+      tmpi += tmp8;
+      break;
+    case 2:
+      tmpi += tmp8*10;
+      break;
+    case 3:
+      tmpi += tmp8*100;
+      break;
+    case 4:
+      tmpi += tmp8*1000;
+      break;
+    case 5:
+      tmpi += tmp8*10000;
+      break;
+    }
+    mult--;
+  }
+  *value = tmpi;
+  return COM_OK;
 }
+
+void vTestSMA(void *params)
+{
+  SMA_ENABLE;
+  uint32_t steps = uint32_t(opu_coordinates.latitude) * opu_stepper_motor.mode;
+  for (uint32_t i = 0; i < steps; i++)
+  {
+    SMA_STEP_HI;
+    vTaskDelay(10);
+    SMA_STEP_LO;
+    vTaskDelay(10);
+  }
+  SMA_DISABLE;
+  vTaskDelete(NULL);
+}
+

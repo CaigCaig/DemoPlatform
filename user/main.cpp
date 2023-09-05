@@ -1,9 +1,9 @@
-
 #include "main.h"
 #include "systick.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "device_commands.h"
 #include "mod_config.h"
 #include "msens_settings.h"
 //#include "terminal_medsens.h"
@@ -38,6 +38,8 @@ extern uint8_t MCP3422_State, MCP3422_Calc_Fail;
 char buf[1024]={0};
 uint8_t charging_sr;
 
+extern xTaskHandle TaskWatch;
+
 static void vInit(void* params);
 
 void main(void)
@@ -61,8 +63,6 @@ void main(void)
 
 void vInit(void* params)
 {
-  
-
 //    // Random 
 //    RCC_AHB2PeriphClockCmd(RCC_AHB2Periph_RNG, ENABLE);
 //    RNG_Cmd(ENABLE);
@@ -73,6 +73,10 @@ void vInit(void* params)
   
     // RTC
 //    TM_RTC_Init(TM_RTC_ClockSource_External);
+//    TM_RTC_Init(TM_RTC_ClockSource_Internal);
+    TM_RTC_Init(TM_RTC_ClockSource_HSE);
+    xTaskCreate(vRTC, "Watch", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY, &TaskWatch);
+//    vTaskSuspend(TaskWatch);
     
     // Терминал
 //    medsensTerminal.configure();
@@ -95,6 +99,19 @@ void vInit(void* params)
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOA | RCC_AHB1Periph_GPIOB | RCC_AHB1Periph_GPIOC | RCC_AHB1Periph_GPIOD | RCC_AHB1Periph_GPIOE | RCC_AHB1Periph_GPIOF | RCC_AHB1Periph_GPIOH | RCC_AHB1Periph_DMA1 | RCC_AHB1Periph_DMA2, ENABLE);
     RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2 | RCC_APB1Periph_UART4 | RCC_APB1Periph_UART5 | RCC_APB1Periph_I2C1 | RCC_APB1Periph_SPI2 | RCC_APB1Periph_TIM7, ENABLE);
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1 | RCC_APB2Periph_USART6, ENABLE);
+    
+    // инициализация портов двигателей
+    GPIO_InitTypeDef hgpio;
+    GPIO_WriteBit(SMA_DIR_GPIO_Port, SMA_DIR_Pin, Bit_SET);
+    GPIO_WriteBit(SMA_ENB_GPIO_Port, SMA_ENB_Pin | SMA_STEP_Pin, Bit_SET);
+    hgpio.GPIO_Pin = SMA_ENB_Pin | SMA_STEP_Pin;
+    hgpio.GPIO_Speed = GPIO_Speed_2MHz;
+    hgpio.GPIO_Mode = GPIO_Mode_OUT;
+    hgpio.GPIO_OType = GPIO_OType_PP;
+    hgpio.GPIO_PuPd = GPIO_PuPd_DOWN;
+    GPIO_Init(SMA_ENB_GPIO_Port, &hgpio);
+    hgpio.GPIO_Pin = SMA_DIR_Pin;
+    GPIO_Init(SMA_DIR_GPIO_Port, &hgpio);
     
 //    power36v_GPIO_Port->MODER &= ~GPIO_MODER_MODER9;
 //    power36v_GPIO_Port->MODER |= GPIO_MODER_MODER9_0;        // порт PE9 для включения RSP-1600-36 устанавливаем в режим OUTPUT

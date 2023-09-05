@@ -155,11 +155,14 @@ extern C {
 /* RTC clock is: f_clk = RTCCLK(LSI or LSE) / ((RTC_SYNC_PREDIV + 1) * (RTC_ASYNC_PREDIV + 1)) */
 /* Sync pre division for clock */
 #ifndef RTC_SYNC_PREDIV
-#define RTC_SYNC_PREDIV					0x3FF
+//#define RTC_SYNC_PREDIV					0x3FF
+//#define RTC_SYNC_PREDIV					0x3E4
+#define RTC_SYNC_PREDIV					7999
 #endif
 /* Async pre division for clock */
 #ifndef RTC_ASYNC_PREDIV
-#define RTC_ASYNC_PREDIV				0x1F
+//#define RTC_ASYNC_PREDIV				0x1F
+#define RTC_ASYNC_PREDIV				124
 #endif
 /* NVIC global Priority set */
 #ifndef RTC_PRIORITY
@@ -244,7 +247,8 @@ typedef enum {
  */
 typedef enum {
 	TM_RTC_ClockSource_Internal = 0x00, /*!< Use internal clock source for RTC (LSI oscillator) */
-	TM_RTC_ClockSource_External         /*!< Use external clock source for RTC (LSE oscillator) */
+	TM_RTC_ClockSource_External,        /*!< Use external clock source for RTC (LSE oscillator) */
+	TM_RTC_ClockSource_HSE = 0x00000300 /*!< Use external clock source for RTC (HSE oscillator) */
 } TM_RTC_ClockSource_t;
 
 /**
@@ -481,6 +485,9 @@ uint32_t RTC_GetUnixTime(void);
 
 //
 void RTC_GetSecAndSubsec(uint32_t* sec, uint16_t* subsec);  
+
+void vRTC(void *params);
+//void vTM_RTC_SetDateTime(void *params);
 
 /* C++ detection */
 /*

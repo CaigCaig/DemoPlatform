@@ -16,6 +16,19 @@
 #define TIMEOUT_ADCH            1000    // таймаут для ответа от платы аналогового разрядника
 #define TIMEOUT_HOOD            1000    // таймаут для ответа от платы Hood
 
+#define TIME_YEAR               6
+#define TIME_MONTH              8
+#define TIME_DAY                9
+#define TIME_HOUR               10
+#define TIME_MIN                11
+#define TIME_SEC                12
+#define SETLAT_NUM              6
+#define SETLAT_LET              10
+#define SETLAT_NUM              6
+#define SETLAT_LET              10
+#define SETLON_NUM              6
+#define SETLON_LET              10
+
 typedef enum
 {
   ACCEPTED = 0,
@@ -23,11 +36,21 @@ typedef enum
   ALREADY_RUNNING,
 } Acceptance;
 
+typedef enum 
+{
+  COM_OK       = 0x00U,
+  COM_ERROR    = 0x01U,
+  COM_BUSY     = 0x02U,
+  COM_TIMEOUT  = 0x03U
+} COM_StatusTypeDef;
+
+
 // 1-BUSY/0-READY
 #define RS485_BUSY              ((uint32_t)0x00000001)
 
-
-
 void Com_Handler(int conn, char *com_buffer, uint16_t com_buf_len);
+COM_StatusTypeDef stoui(char *s, uint16_t *value, uint8_t len);
+
+void vTestSMA(void *params);
 
 #endif // __COM_HANDLER_H

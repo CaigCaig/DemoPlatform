@@ -1,7 +1,3 @@
-*.ewd
-*.eww
-*.ewt
-*.dep
 *.tmp
 /projects/iar/Debug/
 /projects/iar/settings/

@@ -16,6 +16,9 @@
  * | along with this program.  If not, see <http://www.gnu.org/licenses/>.
  * |----------------------------------------------------------------------
  */
+#include "FreeRTOS.h"
+#include "task.h"
+#include "device_commands.h"
 #include "rtc.h"
 
 /* Private macros */
@@ -115,8 +118,15 @@ uint32_t TM_RTC_Init(TM_RTC_ClockSource_t source)
     TM_RTC_Status = RTC_STATUS_TIME_OK;
 		
     /* Start internal clock if we choose internal clock */
-    if (source == TM_RTC_ClockSource_Internal)
-      TM_RTC_Config(TM_RTC_ClockSource_Internal);
+    switch (source)
+    {
+    case TM_RTC_ClockSource_Internal:
+      TM_RTC_Config(source);
+      break;
+    case TM_RTC_ClockSource_HSE:
+      TM_RTC_Config(source);
+      break;
+    }
 
     /* Wait for RTC APB registers synchronisation (needed after start-up from Reset) */
     RTC_WaitForSynchro();
@@ -133,8 +143,15 @@ uint32_t TM_RTC_Init(TM_RTC_ClockSource_t source)
     TM_RTC_Status = RTC_STATUS_INIT_OK;
 		
     /* Start internal clock if we choose internal clock */
-    if (source == TM_RTC_ClockSource_Internal)
-      TM_RTC_Config(TM_RTC_ClockSource_Internal);
+    switch (source)
+    {
+    case TM_RTC_ClockSource_Internal:
+      TM_RTC_Config(source);
+      break;
+    case TM_RTC_ClockSource_HSE:
+      TM_RTC_Config(source);
+      break;
+    }
 
     /* Wait for RTC APB registers synchronisation (needed after start-up from Reset) */
     RTC_WaitForSynchro();
@@ -152,7 +169,7 @@ uint32_t TM_RTC_Init(TM_RTC_ClockSource_t source)
     /* Return status = 0 -> RTC Never initialized before */
     stat = RTC_STATUS_ZERO;
     /* Config RTC */
-	TM_RTC_Config(source);
+    TM_RTC_Config(source);
 		
     /* Set date and time */
     datatime.date = 1;
@@ -407,25 +424,32 @@ uint16_t TM_RTC_GetDaysInYear(uint8_t year) {
 }
 
 void TM_RTC_Config(TM_RTC_ClockSource_t source) {
-	if (source == TM_RTC_ClockSource_Internal) {
-		/* Enable the LSI OSC */
-		RCC_LSICmd(ENABLE);
+        switch (source)
+        {
+        case TM_RTC_ClockSource_Internal:
+          /* Enable the LSI OSC */
+          RCC_LSICmd(ENABLE);
 
-		/* Wait till LSI is ready */
-		while (RCC_GetFlagStatus(RCC_FLAG_LSIRDY) == RESET);
+          /* Wait till LSI is ready */
+          while (RCC_GetFlagStatus(RCC_FLAG_LSIRDY) == RESET);
 
-		/* Select the RTC Clock Source */
-		RCC_RTCCLKConfig(RCC_RTCCLKSource_LSI);
-	} else if (source == TM_RTC_ClockSource_External) {
-		/* Enable the LSE OSC */
-		RCC_LSEConfig(RCC_LSE_ON);
+          /* Select the RTC Clock Source */
+          RCC_RTCCLKConfig(RCC_RTCCLKSource_LSI);
+          break;
+        case TM_RTC_ClockSource_External:
+          /* Enable the LSE OSC */
+          RCC_LSEConfig(RCC_LSE_ON);
 
-		/* Wait till LSE is ready */ 
-		while (RCC_GetFlagStatus(RCC_FLAG_LSERDY) == RESET);
+          /* Wait till LSE is ready */ 
+          while (RCC_GetFlagStatus(RCC_FLAG_LSERDY) == RESET);
 
-		/* Select the RTC Clock Source */
-		RCC_RTCCLKConfig(RCC_RTCCLKSource_LSE);
-	}
+          /* Select the RTC Clock Source */
+          RCC_RTCCLKConfig(RCC_RTCCLKSource_LSE);
+          break;
+        case TM_RTC_ClockSource_HSE:
+          RCC_RTCCLKConfig(source | RCC_RTCCLKSource_HSE_Div8);
+          break;
+  }
 	
 	/* Enable the RTC Clock */
 	RCC_RTCCLKCmd(ENABLE);
@@ -885,3 +909,27 @@ void RTC_GetSecAndSubsec(uint32_t* sec, uint16_t* subsec)
     *subsec = uint16_t(1000 - (float)currentTime.subseconds * 1000.0/1023.0);    
 }
 
+void vRTC(void *params)
+{
+  extern OPU_TIME_t utc;
+  TM_RTC_t currentTime;
+  for (;;)
+  {
+    TM_RTC_GetDateTime(&currentTime, TM_RTC_Format_BIN);
+    utc.year = 2000 + currentTime.year;
+    utc.month = currentTime.month;
+    utc.day = currentTime.day;
+    utc.hour = currentTime.hours;
+    utc.min = currentTime.minutes;
+    utc.sec = currentTime.seconds;
+    vTaskDelay(200);
+  }
+}
+
+/*
+void vTM_RTC_SetDateTime(void *params)
+{
+  
+  vTaskDelete(NULL);
+}
+*/
