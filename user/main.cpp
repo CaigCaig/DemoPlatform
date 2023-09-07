@@ -102,16 +102,21 @@ void vInit(void* params)
     
     // инициализация портов двигателей
     GPIO_InitTypeDef hgpio;
-    GPIO_WriteBit(SMA_DIR_GPIO_Port, SMA_DIR_Pin, Bit_SET);
-    GPIO_WriteBit(SMA_ENB_GPIO_Port, SMA_ENB_Pin | SMA_STEP_Pin, Bit_SET);
-    hgpio.GPIO_Pin = SMA_ENB_Pin | SMA_STEP_Pin;
+    GPIO_WriteBit(SM1_STEP_GPIO_Port, SM1_STEP_Pin, Bit_RESET);
+    GPIO_WriteBit(SM2_DIR_GPIO_Port, SM2_DIR_Pin, Bit_SET);
+    GPIO_WriteBit(SM1_ENB_GPIO_Port, SM1_ENB_Pin | SM1_DIR_Pin | SM2_ENB_Pin | SM3_ENB_Pin, Bit_SET);
+    GPIO_WriteBit(SM2_STEP_GPIO_Port, SM2_STEP_Pin | SM3_STEP_Pin, Bit_RESET);
+    GPIO_WriteBit(SM3_DIR_GPIO_Port, SM3_DIR_Pin, Bit_SET);
+    hgpio.GPIO_Pin = SM1_ENB_Pin | SM1_DIR_Pin | SM2_ENB_Pin | SM2_STEP_Pin | SM3_ENB_Pin | SM3_STEP_Pin;
     hgpio.GPIO_Speed = GPIO_Speed_2MHz;
     hgpio.GPIO_Mode = GPIO_Mode_OUT;
     hgpio.GPIO_OType = GPIO_OType_PP;
     hgpio.GPIO_PuPd = GPIO_PuPd_DOWN;
-    GPIO_Init(SMA_ENB_GPIO_Port, &hgpio);
-    hgpio.GPIO_Pin = SMA_DIR_Pin;
-    GPIO_Init(SMA_DIR_GPIO_Port, &hgpio);
+    GPIO_Init(SM1_ENB_GPIO_Port, &hgpio);
+    hgpio.GPIO_Pin = SM1_STEP_Pin | SM2_DIR_Pin;
+    GPIO_Init(SM1_STEP_GPIO_Port, &hgpio);
+    hgpio.GPIO_Pin = SM3_DIR_Pin;
+    GPIO_Init(SM3_DIR_GPIO_Port, &hgpio);
     
 //    power36v_GPIO_Port->MODER &= ~GPIO_MODER_MODER9;
 //    power36v_GPIO_Port->MODER |= GPIO_MODER_MODER9_0;        // порт PE9 для включения RSP-1600-36 устанавливаем в режим OUTPUT

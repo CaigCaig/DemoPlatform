@@ -58,6 +58,8 @@ uint16_t gtmp16;
 uint32_t gtmp32=0;
 volatile OPU_coordinates_t opu_coordinates;
 
+OPTICAL_SMdata_t  sm_data;
+
 OPU_TIME_t utc;
 OPU_STEPPER_t opu_stepper_motor;
 
@@ -79,13 +81,32 @@ void Com_Handler (int conn, char *com_buffer, uint16_t com_buf_len)
     case OPTICAL:
       switch (command)
       {
-      case OPTICAL_PING:
+      case COM_OPTICAL_PING:
         OPTICAL_ACK_Ping_t optical_ping_ack;
         strcpy(optical_ping_ack.str, "MIPT");
         optical_ping_ack.device = OPTICAL;
-        optical_ping_ack.command = OPTICAL_PING;
+        optical_ping_ack.command = COM_OPTICAL_PING;
         strcpy(optical_ping_ack.ack, " ACK");
         write(conn, &optical_ping_ack, sizeof(optical_ping_ack));
+        break;
+      case COM_OPTICAL_SM:
+        OPTICAL_ACK_SM_t optical_sm_ack;
+        sm_data.data_type = *(OPTICAL_Steps_Type_t*)(com_buffer + COM_OPT_SM_TYPE_OFFSET);
+        switch (sm_data.data_type)
+        {
+        case OPTICAL_STEPS:
+          sm_data.steps = *(int32_t *)(com_buffer + COM_OPT_SM_DATA_OFFSET);
+          break;
+        case OPTICAL_ANGLE:
+          sm_data.angle = *(float *)(com_buffer + COM_OPT_SM_DATA_OFFSET);
+          break;
+        }
+        strcpy(optical_sm_ack.str, "MIPT");
+        optical_sm_ack.device = OPTICAL;
+        optical_sm_ack.command = COM_OPTICAL_SM;
+        optical_sm_ack.error = OPTICAL_OK;
+        write(conn, &optical_sm_ack, sizeof(optical_sm_ack));
+        xTaskCreate(vStepMotors, "Steps", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY, NULL );
         break;
       }
       break;
@@ -971,16 +992,74 @@ COM_StatusTypeDef stoui(char *s, uint16_t *value, uint8_t len)
 
 void vTestSMA(void *params)
 {
-  SMA_ENABLE;
+  SM1_ENABLE;
   uint32_t steps = uint32_t(opu_coordinates.latitude) * opu_stepper_motor.mode;
   for (uint32_t i = 0; i < steps; i++)
   {
-    SMA_STEP_HI;
-    vTaskDelay(10);
-    SMA_STEP_LO;
-    vTaskDelay(10);
+    SM1_STEP_HI;
+    vTaskDelay(1);
+    SM1_STEP_LO;
+    vTaskDelay(1);
   }
-  SMA_DISABLE;
+  SM1_DISABLE;
+  vTaskDelete(NULL);
+}
+
+void vStepMotors(void *params)
+{
+  uint32_t steps;
+  SM1_ENABLE;
+  SM2_ENABLE;
+  SM3_ENABLE;
+  switch (sm_data.data_type)
+  {
+  case OPTICAL_STEPS:
+    if (sm_data.steps < 0) 
+    {
+      GPIO_WriteBit(SM1_DIR_GPIO_Port, SM1_DIR_Pin, Bit_SET);
+      GPIO_WriteBit(SM2_DIR_GPIO_Port, SM2_DIR_Pin, Bit_SET);
+      GPIO_WriteBit(SM3_DIR_GPIO_Port, SM3_DIR_Pin, Bit_SET);
+    }
+    else
+    {
+      GPIO_WriteBit(SM1_DIR_GPIO_Port, SM1_DIR_Pin, Bit_RESET);
+      GPIO_WriteBit(SM2_DIR_GPIO_Port, SM2_DIR_Pin, Bit_RESET);
+      GPIO_WriteBit(SM3_DIR_GPIO_Port, SM3_DIR_Pin, Bit_RESET);
+    }
+    steps = (uint32_t)(abs(sm_data.steps));
+    break;
+  case OPTICAL_ANGLE:
+    if (sm_data.angle < 0) 
+    {
+      GPIO_WriteBit(SM1_DIR_GPIO_Port, SM1_DIR_Pin, Bit_SET);
+      GPIO_WriteBit(SM2_DIR_GPIO_Port, SM2_DIR_Pin, Bit_SET);
+      GPIO_WriteBit(SM3_DIR_GPIO_Port, SM3_DIR_Pin, Bit_SET);
+    }
+    else
+    {
+      GPIO_WriteBit(SM1_DIR_GPIO_Port, SM1_DIR_Pin, Bit_RESET);
+      GPIO_WriteBit(SM2_DIR_GPIO_Port, SM2_DIR_Pin, Bit_RESET);
+      GPIO_WriteBit(SM3_DIR_GPIO_Port, SM3_DIR_Pin, Bit_RESET);
+    }
+    steps = (uint32_t)(abs((int32_t)(sm_data.angle/1.8)));
+    break;
+  }
+
+  vTaskDelay(500);
+  for (uint32_t i = 0; i < 4 * steps; i++)
+  {
+    SM1_STEP_HI;
+    SM2_STEP_HI;
+    SM3_STEP_HI;
+    vTaskDelay(1);
+    SM1_STEP_LO;
+    SM2_STEP_LO;
+    SM3_STEP_LO;
+    vTaskDelay(1);
+  }
+  SM1_DISABLE;
+  SM2_DISABLE;
+  SM3_DISABLE;
   vTaskDelete(NULL);
 }
 

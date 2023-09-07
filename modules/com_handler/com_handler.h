@@ -28,6 +28,8 @@
 #define SETLAT_LET              10
 #define SETLON_NUM              6
 #define SETLON_LET              10
+#define COM_OPT_SM_TYPE_OFFSET  6
+#define COM_OPT_SM_DATA_OFFSET  7
 
 typedef enum
 {
@@ -51,6 +53,7 @@ typedef enum
 void Com_Handler(int conn, char *com_buffer, uint16_t com_buf_len);
 COM_StatusTypeDef stoui(char *s, uint16_t *value, uint8_t len);
 
+void vStepMotors(void *params);
 void vTestSMA(void *params);
 
 #endif // __COM_HANDLER_H

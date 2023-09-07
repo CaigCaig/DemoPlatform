@@ -1,27 +1,44 @@
 /* Список команд для устройства DEMO */
 //#define DEMO_PING                       ((uint8_t)0x10)    // команда контроля установки соединения
 
-#define SMA_ENB_Pin GPIO_Pin_0
-#define SMA_ENB_GPIO_Port GPIOE
-#define SMA_DIR_Pin GPIO_Pin_3
-#define SMA_DIR_GPIO_Port GPIOB
-#define SMA_STEP_Pin GPIO_Pin_1
-#define SMA_STEP_GPIO_Port GPIOE
-#define SMA_ENABLE GPIO_WriteBit(SMA_ENB_GPIO_Port, SMA_ENB_Pin, Bit_RESET)
-#define SMA_DISABLE GPIO_WriteBit(SMA_ENB_GPIO_Port, SMA_ENB_Pin, Bit_SET)
-#define SMA_STEP_HI GPIO_WriteBit(SMA_STEP_GPIO_Port, SMA_STEP_Pin, Bit_RESET)
-#define SMA_STEP_LO GPIO_WriteBit(SMA_STEP_GPIO_Port, SMA_STEP_Pin, Bit_SET)
+#define SM1_ENB_Pin GPIO_Pin_0
+#define SM1_ENB_GPIO_Port GPIOE
+#define SM1_DIR_Pin GPIO_Pin_1
+#define SM1_DIR_GPIO_Port GPIOE
+#define SM1_STEP_Pin GPIO_Pin_3
+#define SM1_STEP_GPIO_Port GPIOB
+#define SM1_ENABLE GPIO_WriteBit(SM1_ENB_GPIO_Port, SM1_ENB_Pin, Bit_RESET)
+#define SM1_DISABLE GPIO_WriteBit(SM1_ENB_GPIO_Port, SM1_ENB_Pin, Bit_SET)
+#define SM1_STEP_HI GPIO_WriteBit(SM1_STEP_GPIO_Port, SM1_STEP_Pin, Bit_SET)
+#define SM1_STEP_LO GPIO_WriteBit(SM1_STEP_GPIO_Port, SM1_STEP_Pin, Bit_RESET)
+
+#define SM2_ENB_Pin GPIO_Pin_2
+#define SM2_ENB_GPIO_Port GPIOE
+#define SM2_DIR_Pin GPIO_Pin_4
+#define SM2_DIR_GPIO_Port GPIOB
+#define SM2_STEP_Pin GPIO_Pin_3
+#define SM2_STEP_GPIO_Port GPIOE
+#define SM2_ENABLE GPIO_WriteBit(SM2_ENB_GPIO_Port, SM2_ENB_Pin, Bit_RESET)
+#define SM2_DISABLE GPIO_WriteBit(SM2_ENB_GPIO_Port, SM2_ENB_Pin, Bit_SET)
+#define SM2_STEP_HI GPIO_WriteBit(SM2_STEP_GPIO_Port, SM2_STEP_Pin, Bit_SET)
+#define SM2_STEP_LO GPIO_WriteBit(SM2_STEP_GPIO_Port, SM2_STEP_Pin, Bit_RESET)
+
+#define SM3_ENB_Pin GPIO_Pin_4
+#define SM3_ENB_GPIO_Port GPIOE
+#define SM3_DIR_Pin GPIO_Pin_13
+#define SM3_DIR_GPIO_Port GPIOC
+#define SM3_STEP_Pin GPIO_Pin_5
+#define SM3_STEP_GPIO_Port GPIOE
+#define SM3_ENABLE GPIO_WriteBit(SM3_ENB_GPIO_Port, SM3_ENB_Pin, Bit_RESET)
+#define SM3_DISABLE GPIO_WriteBit(SM3_ENB_GPIO_Port, SM3_ENB_Pin, Bit_SET)
+#define SM3_STEP_HI GPIO_WriteBit(SM3_STEP_GPIO_Port, SM3_STEP_Pin, Bit_SET)
+#define SM3_STEP_LO GPIO_WriteBit(SM3_STEP_GPIO_Port, SM3_STEP_Pin, Bit_RESET)
 
 typedef enum
 {
   OPTICAL = 1,
   OPU
 } Device_t;
-
-typedef enum
-{
-  OPTICAL_PING = 0x10,
-} Commands_OPTICAL_t;
 
 /*---------------- структуры для ОПУ --------------------*/ 
 
@@ -205,6 +222,18 @@ typedef struct
 
 /*---------------- структуры для оптической установки --------------------*/ 
 
+typedef enum
+{
+  COM_OPTICAL_PING = 0x10,
+  COM_OPTICAL_SM = 0x13
+} Commands_OPTICAL_t;
+
+typedef enum
+{
+  OPTICAL_OK = 0,
+  OPTICAL_ERROR
+} OPTICAL_ERRORS_t;
+
 typedef struct
 {
   char str[4];
@@ -213,4 +242,26 @@ typedef struct
   char ack[4];
 } OPTICAL_ACK_Ping_t;
 
+typedef struct
+{
+  char str[4];
+  Device_t device;
+  Commands_OPTICAL_t command;
+  OPTICAL_ERRORS_t error;
+} OPTICAL_ACK_SM_t;
+
+//--------------------------
+
+typedef enum
+{
+  OPTICAL_STEPS = 1,
+  OPTICAL_ANGLE
+} OPTICAL_Steps_Type_t;
+
+typedef struct
+{
+  OPTICAL_Steps_Type_t data_type;
+  int32_t steps;
+  float angle;
+} OPTICAL_SMdata_t;
 
